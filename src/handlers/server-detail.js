@@ -492,7 +492,7 @@ export async function handleServerDetail(request, env, sys, viewId) {
         ${server.name} — ssh
       </div>
       <div class="terminal-controls">
-        <span style="color: var(--text-muted);">${new Date().toLocaleString('zh-CN')}</span>
+        <span style="color: var(--text-muted);">${new Date().toLocaleString()}</span>
       </div>
     </div>
     
@@ -768,7 +768,7 @@ export async function handleServerDetail(request, env, sys, viewId) {
             title: function(items) {
               if (items.length > 0 && items[0].raw) {
                 const date = new Date(items[0].raw.x);
-                return '> ' + date.toLocaleString('zh-CN', {
+                return '> ' + date.toLocaleString(undefined, {
                   year: 'numeric',
                   month: '2-digit',
                   day: '2-digit',
@@ -1109,7 +1109,7 @@ export async function handleServerDetail(request, env, sys, viewId) {
         updateAllChartTimeUnits(hours);
         
         // 更新最后更新时间
-        document.getElementById('last-update').textContent = new Date().toLocaleTimeString('zh-CN');
+        document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
         
       } catch (e) {
         console.error('[ERROR] 加载历史数据失败:', e);

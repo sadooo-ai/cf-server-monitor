@@ -832,7 +832,7 @@ export async function handleDashboard(request, env, sys) {
         dashboard — ${sys.site_title}
       </div>
       <div style="color: var(--text-muted); font-size: 11px;">
-        ${new Date().toLocaleString('zh-CN')}
+        ${new Date().toLocaleString()}
       </div>
     </div>
     

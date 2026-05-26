@@ -811,7 +811,7 @@ export async function handleAdminUI(request, env, sys) {
         admin — ${sys.admin_title}
       </div>
       <div style="color: var(--text-muted); font-size: 11px;">
-        ${new Date().toLocaleString('zh-CN')}
+        ${new Date().toLocaleString()}
       </div>
     </div>
     
