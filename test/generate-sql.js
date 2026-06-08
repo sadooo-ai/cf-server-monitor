@@ -100,9 +100,11 @@ DELETE FROM settings;
 const appearanceOptions = {
   site_title: 'Cloudflare Server Monitor',
   admin_title: 'Admin Panel',
-  custom_bg: '',
+  custom_bg: 'https://cdn.nodeimage.com/i/fux0OSoFzVZQsn9uZmSDbIpKzZw2r8GW.webp',
   custom_head: '<meta content="test">',
-  custom_script: 'console.log("Hello, World!");'
+  custom_script: 'console.log("Hello, World!");',
+  turnstile_enabled: 'false',
+  turnstile_site_key: '0x4AAAAAADe_MND1KZql-IaB'
 };
 
 const siteOptions = {

@@ -3,8 +3,16 @@ import App from './App.vue'
 import router from './router'
 import './styles/main.css'
 import './styles/light.css'
+import { currentLang, translations } from './utils/i18n'
 
 const API_BASE = window.location.origin
+
+const getTranslation = () => {
+  const lang = localStorage.getItem('language_preference') || 'en'
+  return translations[lang] || translations.en
+}
+
+const trans = () => getTranslation()
 
 async function fetchConfig() {
   try {
@@ -95,8 +103,8 @@ async function initApp() {
         loading.innerHTML = `
           <div class="loading-content">
             <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-            <div class="loading-text" style="color: #f85149;">Verification failed</div>
-            <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">Please refresh the page to try again</div>
+            <div class="loading-text" style="color: #f85149;">${trans().errorInvalidUsername || 'Verification failed'}</div>
+            <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">${trans().loginRequired || 'Please refresh the page to try again'}</div>
           </div>
         `
         return
@@ -106,7 +114,7 @@ async function initApp() {
       loading.innerHTML = `
         <div class="loading-content">
           <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
-          <div class="loading-text" style="color: #f85149;">Verification error</div>
+          <div class="loading-text" style="color: #f85149;">${trans().errorInvalidUsername || 'Verification error'}</div>
           <div style="font-size: 12px; color: #6b7280; margin-top: 8px;">${e.message}</div>
         </div>
       `

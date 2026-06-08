@@ -1,5 +1,6 @@
 import { saveMetricsHistory } from '../database/schema.js';
 import { checkServerExists, clearServerDetailCache } from '../utils/cache.js';
+import { createErrorResponse, createUnauthorizedResponse, createNotFoundResponse } from '../utils/errors.js';
 
 // 将最新一次上报打包成前端可直接消费的 "当前状态" 对象
 // 与 /api/server 和 /api/servers 返回的字段保持一致，便于页面直接合并
@@ -67,10 +68,7 @@ export async function handleUpdate(request, env, ctx) {
     const { id, secret, metrics } = data;
 
     if (secret !== env.API_SECRET) {
-      return new Response(JSON.stringify({ error: 'Unauthorized', code: 401 }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return createUnauthorizedResponse('Invalid secret');
     }
 
     let countryCode = request.cf?.country || '';
@@ -79,19 +77,17 @@ export async function handleUpdate(request, env, ctx) {
     const serverExists = await checkServerExists(env.DB, id);
 
     if (!serverExists) {
-      return new Response('Server not found', { status: 404 });
+      return createNotFoundResponse('Server not found');
     }
 
     await saveMetricsHistory(env.DB, id, metrics, countryCode);
 
-    // 构建广播 payload 并异步触发 DO 推送（不阻塞响应）
     const payload = buildPayloadForBroadcast(id, metrics || {}, { country: countryCode });
     ctx.waitUntil(broadcastToDO(env, id, payload));
 
     return new Response('OK', { status: 200 });
   } catch (e) {
-    console.error('更新数据失败:', e);
-    return new Response(`Error: ${e.message}`, { status: 400 });
+    return createErrorResponse(e);
   }
 }
 

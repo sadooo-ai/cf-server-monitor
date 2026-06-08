@@ -65,7 +65,11 @@
     </div>
 
     <div id="view-card" class="view-panel" :class="{ active: currentView === 'card' }">
-      <div v-if="groupedServers.length === 0" class="empty-state">
+      <div v-if="isLoading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">$ {{ trans.loading }}</div>
+      </div>
+      <div v-else-if="groupedServers.length === 0" class="empty-state">
         [!] {{ trans.noServer }}，请在 <a href="/admin" class="admin-link-color">{{ trans.backToAdmin }}</a> 中添加
       </div>
       <div v-else>
@@ -105,7 +109,13 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-if="filteredServers.length === 0">
+            <tr v-if="isLoading">
+              <td colspan="12" class="table-empty-state">
+                <div class="loading-spinner-small"></div>
+                <span>$ {{ trans.loading }}</span>
+              </td>
+            </tr>
+            <tr v-else-if="filteredServers.length === 0">
               <td colspan="12" class="table-empty-state">[*] {{ trans.noData }}</td>
             </tr>
             <tr 
@@ -180,6 +190,7 @@ import Footer from '../components/Footer.vue'
 import { fetchServers, formatBytes, createLiveSocket } from '../utils/api.js'
 import { t, currentLang } from '../utils/i18n.js'
 import { translations } from '../utils/i18n.js'
+import { TIME } from '../utils/constants'
 
 const servers = ref([])
 const stats = ref({ total: '-', online: 0, offline: 0, globalNetRx: 0, globalNetTx: 0, globalSpeedIn: 0, globalSpeedOut: 0 })
@@ -196,6 +207,7 @@ const currentView = ref('card')
 const currentFilter = ref('all')
 const mapInitialized = ref(false)
 const liveConnected = ref(false)
+const isLoading = ref(true)
 
 const trans = computed(() => translations[currentLang.value] || translations.en)
 
@@ -244,7 +256,7 @@ const setFilter = (code) => {
 
 const getStatusColor = (server) => {
   const lastUpdated = new Date(server.last_updated).getTime()
-  return (Date.now() - lastUpdated) < 300000 ? 'var(--accent-green)' : 'var(--accent-red)'
+  return (Date.now() - lastUpdated) < TIME.ONLINE_THRESHOLD_MS ? 'var(--accent-green)' : 'var(--accent-red)'
 }
 
 const getUpdateTime = (lastUpdated) => {
@@ -277,7 +289,7 @@ const recomputeStats = () => {
   const countryCounts = {}
   for (const s of list) {
     const ts = new Date(s.last_updated || 0).getTime()
-    const isOnline = ts && (now - ts) < 300000
+    const isOnline = ts && (now - ts) < TIME.ONLINE_THRESHOLD_MS
     if (isOnline) {
       online++
       speedIn += parseFloat(s.net_in_speed) || 0
@@ -329,8 +341,10 @@ const refreshData = async () => {
     }
 
     drawMarkers()
+    isLoading.value = false
   } catch (e) {
     console.log('[INFO] Full refresh pending...', e)
+    isLoading.value = false
   }
 }
 

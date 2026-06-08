@@ -82,6 +82,7 @@ import { computed } from 'vue'
 import { formatBytes } from '../utils/api'
 import { t, currentLang } from '../utils/i18n'
 import { translations } from '../utils/i18n'
+import { TIME, PING } from '../utils/constants'
 
 const props = defineProps({
   server: {
@@ -107,7 +108,7 @@ const countryCode = computed(() => (props.server.country || 'xx').toLowerCase())
 
 const isOnline = computed(() => {
   const lastUpdated = new Date(props.server.last_updated).getTime()
-  return (now - lastUpdated) < 300000
+  return (now - lastUpdated) < TIME.ONLINE_THRESHOLD_MS
 })
 
 const statusColor = computed(() => isOnline.value ? 'var(--accent-green)' : 'var(--accent-red)')
@@ -146,8 +147,8 @@ const isPingValid = (ping) => {
 const getPingColor = (ping) => {
   if (!isPingValid(ping)) return 'var(--accent-red)'
   const val = parseInt(ping)
-  if (val < 100) return 'var(--accent-green)'
-  if (val < 200) return 'var(--accent-yellow)'
+  if (val < PING.GOOD_THRESHOLD) return 'var(--accent-green)'
+  if (val < PING.WARNING_THRESHOLD) return 'var(--accent-yellow)'
   return 'var(--accent-red)'
 }
 </script>

@@ -82,8 +82,8 @@
           <span class="sysinfo-value sysinfo-small">{{ formatBootTime(server.boot_time) }}</span>
         </div>
         <div class="sysinfo-item">
-          <span class="sysinfo-label">⏰ {{ trans.lastReport }}</span>
-          <span class="sysinfo-value sysinfo-small">{{ lastReportTime }}</span>
+          <span class="sysinfo-label">⏰ {{ trans.lastUpdate }}</span>
+          <span class="sysinfo-value sysinfo-small">{{ lastUpdateText }}</span>
         </div>
       </div>
     </div>
@@ -215,16 +215,6 @@
       </div>
     </div>
 
-    <div class="status-bar">
-      <div class="status-bar-item">
-        <span class="status-bar-dot"></span>
-        <span>{{ trans.lastUpdate }}: <span>{{ lastUpdateText }}</span></span>
-      </div>
-      <div class="status-bar-item">
-        <span>{{ trans.autoRefresh }}: {{ trans.realtime || '实时' }}</span>
-      </div>
-    </div>
-
     <Footer />
 
     <div id="loginRequiredModal" class="modal-overlay" :class="{ active: showLoginModal }">
@@ -246,7 +236,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import TerminalHeader from '../components/TerminalHeader.vue'
 import Footer from '../components/Footer.vue'
@@ -255,6 +245,7 @@ import Chart from 'chart.js/auto'
 import 'chartjs-adapter-date-fns'
 import { t, currentLang } from '../utils/i18n'
 import { translations } from '../utils/i18n'
+import { TIME, CHART, GAP_BREAK } from '../utils/constants'
 
 const route = useRoute()
 
@@ -284,14 +275,12 @@ const timeOptions = computed(() => {
     { hours: 6, label: '6h' },
     { hours: 12, label: '12h' },
     { hours: 24, label: '24h' },
-    //{ hours: 48, label: '2d' },
-    //{ hours: 72, label: '3d' }
   ]
 })
 
 const isOnline = computed(() => {
   const lastUpdated = new Date(server.value.last_updated).getTime()
-  return (Date.now() - lastUpdated) < 300000
+  return (Date.now() - lastUpdated) < TIME.ONLINE_THRESHOLD_MS
 })
 
 const cpuPercent = computed(() => (parseFloat(server.value.cpu) || 0).toFixed(1))
@@ -329,6 +318,21 @@ const loadChartRef = ref(null)
 const historyLoaded = ref(false)
 
 const charts = {}
+const chartsReady = ref(false)
+let isInitializingCharts = false
+
+const safeDestroyCharts = () => {
+  try {
+    if (charts.cpu) { charts.cpu.destroy(); charts.cpu = null }
+    if (charts.ram) { charts.ram.destroy(); charts.ram = null }
+    if (charts.disk) { charts.disk.destroy(); charts.disk = null }
+    if (charts.net) { charts.net.destroy(); charts.net = null }
+    if (charts.proc) { charts.proc.destroy(); charts.proc = null }
+    if (charts.conn) { charts.conn.destroy(); charts.conn = null }
+    if (charts.ping) { charts.ping.destroy(); charts.ping = null }
+    if (charts.load) { charts.load.destroy(); charts.load = null }
+  } catch (e) { /* ignore */ }
+}
 
 const parseLoadAvg = (loadAvgStr) => {
   if (!loadAvgStr) return [0, 0, 0]
@@ -394,6 +398,8 @@ const formatBootTime = (bootTime) => {
 }
 
 const initCharts = () => {
+  safeDestroyCharts()
+
   Chart.defaults.font.family = "'JetBrains Mono', 'Courier New', monospace"
   Chart.defaults.font.size = 10
   Chart.defaults.color = '#8999af'
@@ -410,7 +416,7 @@ const initCharts = () => {
   const createChartOptions = (unit = '', showLegend = false, yAxisLabel = '') => ({
     responsive: true,
     maintainAspectRatio: false,
-    animation: { duration: 300, easing: 'easeOutCubic' },
+    animation: { duration: CHART.ANIMATION_DURATION, easing: 'easeOutCubic' },
     interaction: { mode: 'index', intersect: false },
     plugins: {
       legend: {
@@ -464,7 +470,7 @@ const initCharts = () => {
           tooltipFormat: 'yyyy-MM-dd HH:mm:ss'
         },
         ticks: {
-          maxTicksLimit: 8,
+          maxTicksLimit: CHART.MAX_TICKS,
           color: '#5c6d82',
           font: { size: 9, family: "'JetBrains Mono', monospace" },
           maxRotation: 0,
@@ -588,60 +594,18 @@ const initCharts = () => {
   }
 }
 
-const updateChartDataset = (chart, datasetIndex, dataPoints, xField = 'timestamp', yField) => {
-  if (!chart) return
-
-  const dataset = chart.data.datasets[datasetIndex]
-  if (!dataset) return
-  
-  const endTime = Date.now()
-  const startTime = endTime - currentHours.value * 60 * 60 * 1000
-
-  let processedData = []
-  if (dataPoints && dataPoints.length > 0) {
-    let sampledData = dataPoints
-    if (dataPoints.length > 500) {
-      const step = Math.ceil(dataPoints.length / 500)
-      sampledData = dataPoints.filter((_, i) => i % step === 0)
-    }
-
-    processedData = sampledData.map(d => {
-      const val = parseFloat(d[yField])
-      return {
-        x: new Date(d[xField]).getTime(),
-        y: (val > 0) ? val : null
-      }
-    })
-
-    processedData.sort((a, b) => a.x - b.x)
-    processedData = applyGapBreak(processedData)
-  }
-
-  // 设置 x 轴范围
-  if (chart.options && chart.options.scales && chart.options.scales.x) {
-    chart.options.scales.x.min = startTime
-    chart.options.scales.x.max = endTime
-  }
-
-  dataset.data = processedData
-  chart.update('none')
+const getMaxGapMs = () => {
+  if (currentHours.value <= 1) return GAP_BREAK.LESS_THAN_1_HOUR
+  if (currentHours.value <= 6) return GAP_BREAK.LESS_THAN_6_HOURS
+  if (currentHours.value <= 12) return GAP_BREAK.LESS_THAN_12_HOURS
+  if (currentHours.value <= 24) return GAP_BREAK.LESS_THAN_24_HOURS
+  return GAP_BREAK.MORE_THAN_24_HOURS
 }
 
 const applyGapBreak = (data) => {
   if (!data || data.length < 2) return data
   
-  let maxGapMs = null
-  if (currentHours.value <= 1) {
-    maxGapMs = 5 * 60 * 1000
-  } else if (currentHours.value <= 6) {
-    maxGapMs = 10 * 60 * 1000
-  } else if (currentHours.value <= 12) {
-    maxGapMs = 15 * 60 * 1000
-  } else if (currentHours.value <= 24) {
-    maxGapMs = 20 * 60 * 1000
-  } else {
-    maxGapMs = 30 * 60 * 1000
-  }
+  const maxGapMs = getMaxGapMs()
   
   const result = []
   for (let i = 0; i < data.length; i++) {
@@ -656,6 +620,46 @@ const applyGapBreak = (data) => {
   return result
 }
 
+const sampleData = (dataPoints) => {
+  if (!dataPoints || dataPoints.length <= CHART.MAX_DATA_POINTS) return dataPoints
+  const step = Math.ceil(dataPoints.length / CHART.MAX_DATA_POINTS)
+  return dataPoints.filter((_, i) => i % step === 0)
+}
+
+const updateChartDataset = (chart, datasetIndex, dataPoints, xField = 'timestamp', yField) => {
+  if (!chart) return
+
+  const dataset = chart.data.datasets[datasetIndex]
+  if (!dataset) return
+  
+  const endTime = Date.now()
+  const startTime = endTime - currentHours.value * 60 * 60 * 1000
+
+  let processedData = []
+  if (dataPoints && dataPoints.length > 0) {
+    const sampledData = sampleData(dataPoints)
+
+    processedData = sampledData.map(d => {
+      const val = parseFloat(d[yField])
+      return {
+        x: new Date(d[xField]).getTime(),
+        y: (val > 0) ? val : null
+      }
+    })
+
+    processedData.sort((a, b) => a.x - b.x)
+    processedData = applyGapBreak(processedData)
+  }
+
+  if (chart.options && chart.options.scales && chart.options.scales.x) {
+    chart.options.scales.x.min = startTime
+    chart.options.scales.x.max = endTime
+  }
+
+  dataset.data = processedData
+  chart.update('none')
+}
+
 const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
   if (!chart) return
 
@@ -667,11 +671,7 @@ const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
 
   let processedData = []
   if (dataPoints && dataPoints.length > 0) {
-    let sampledData = dataPoints
-    if (dataPoints.length > 500) {
-      const step = Math.ceil(dataPoints.length / 500)
-      sampledData = dataPoints.filter((_, i) => i % step === 0)
-    }
+    const sampledData = sampleData(dataPoints)
 
     processedData = sampledData.map(d => {
       const swapTotal = parseFloat(d.swap_total) || 0
@@ -684,7 +684,6 @@ const updateChartDatasetWithSwap = (chart, datasetIndex, dataPoints) => {
     processedData = applyGapBreak(processedData)
   }
 
-  // 设置 x 轴范围
   if (chart.options && chart.options.scales && chart.options.scales.x) {
     chart.options.scales.x.min = startTime
     chart.options.scales.x.max = endTime
@@ -702,11 +701,7 @@ const updateLoadChart = (chart, dataPoints) => {
 
   let processedData = []
   if (dataPoints && dataPoints.length > 0) {
-    let sampledData = dataPoints
-    if (dataPoints.length > 500) {
-      const step = Math.ceil(dataPoints.length / 500)
-      sampledData = dataPoints.filter((_, i) => i % step === 0)
-    }
+    const sampledData = sampleData(dataPoints)
 
     processedData = sampledData.map(d => {
       const loadVal = d.load_avg || '0 0 0'
@@ -722,7 +717,6 @@ const updateLoadChart = (chart, dataPoints) => {
     processedData.sort((a, b) => a.x - b.x)
   }
 
-  // 设置 x 轴范围
   if (chart.options && chart.options.scales && chart.options.scales.x) {
     chart.options.scales.x.min = startTime
     chart.options.scales.x.max = endTime
@@ -770,15 +764,15 @@ const loadAllHistory = async (hours) => {
         chart.update('none')
       })
     })
-    lastUpdateText.value = new Date().toLocaleTimeString()
+    const now = new Date(); lastUpdateText.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
   } catch (e) {
-    console.error('[ERROR] 加载历史数据失败:', e)
+    console.error('[ERROR] Load history failed:', e)
   }
 }
 
 const updateAllChartTimeUnits = (hours) => {
   const unit = hours <= 3 ? 'minute' : 'hour'
-  const maxTicks = hours <= 3 ? 8 : 12
+  const maxTicks = hours <= 3 ? CHART.MAX_TICKS : CHART.MAX_TICKS_HOUR
   const endTime = Date.now()
   const startTime = endTime - hours * 60 * 60 * 1000
 
@@ -815,6 +809,11 @@ const appendDataToChart = (chart, datasetIndex, timestamp, value, isPing = false
   }
   
   dataset.data.push({ x: time, y: yVal })
+  
+  if (dataset.data.length > CHART.MAX_DATA_POINTS) {
+    dataset.data.shift()
+  }
+  
   dataset.data = dataset.data.filter(d => d.x >= startTime)
   
   if (chart.options && chart.options.scales && chart.options.scales.x) {
@@ -825,8 +824,6 @@ const appendDataToChart = (chart, datasetIndex, timestamp, value, isPing = false
   chart.update('none')
 }
 
-// 合并最新指标到 server 状态，并追加到所有图表
-// 既可以从接口拉取 (data=null)，也可以由 WebSocket 推送直接调用
 const fetchCurrentStatus = async (incomingData) => {
   try {
     let data = incomingData
@@ -863,6 +860,12 @@ const fetchCurrentStatus = async (incomingData) => {
       charts.load.data.datasets[1].data.push({ x: time, y: loads[1] })
       charts.load.data.datasets[2].data.push({ x: time, y: loads[2] })
 
+      if (charts.load.data.datasets[0].data.length > CHART.MAX_DATA_POINTS) {
+        charts.load.data.datasets[0].data.shift()
+        charts.load.data.datasets[1].data.shift()
+        charts.load.data.datasets[2].data.shift()
+      }
+
       charts.load.data.datasets[0].data = charts.load.data.datasets[0].data.filter(d => d.x >= startTime)
       charts.load.data.datasets[1].data = charts.load.data.datasets[1].data.filter(d => d.x >= startTime)
       charts.load.data.datasets[2].data = charts.load.data.datasets[2].data.filter(d => d.x >= startTime)
@@ -875,9 +878,9 @@ const fetchCurrentStatus = async (incomingData) => {
       charts.load.update('none')
     }
 
-    lastUpdateText.value = new Date().toLocaleTimeString()
+    const now = new Date(); lastUpdateText.value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`
   } catch (e) {
-    console.error('[ERROR] 更新状态失败:', e)
+    console.error('[ERROR] Update status failed:', e)
   }
 }
 
@@ -898,18 +901,34 @@ const goToLogin = () => {
 let statusTimer = null
 let liveSocket = null
 
-const init = async () => {
-  await nextTick()
-  await new Promise(resolve => setTimeout(resolve, 50))
+const initChartsOnMount = async () => {
+  if (isInitializingCharts || chartsReady.value) return
+  isInitializingCharts = true
 
-  if (cpuChartRef.value && ramChartRef.value && diskChartRef.value &&
-      netChartRef.value && procChartRef.value && connChartRef.value && pingChartRef.value && loadChartRef.value) {
-    initCharts()
+  await nextTick()
+  
+  const allRefsReady = cpuChartRef.value && ramChartRef.value && diskChartRef.value &&
+    netChartRef.value && procChartRef.value && connChartRef.value && pingChartRef.value && loadChartRef.value
+  
+  if (allRefsReady) {
+    try {
+      initCharts()
+      chartsReady.value = true
+    } finally {
+      isInitializingCharts = false
+    }
+  } else {
+    isInitializingCharts = false
+    setTimeout(initChartsOnMount, 30)
   }
+}
+
+const init = async () => {
+  await initChartsOnMount()
+  
   fetchCurrentStatus()
   loadAllHistory(currentHours.value)
 
-  // 实时推送：探针上报时立即更新详情页图表
   liveSocket = createLiveSocket(String(serverId), {
     onUpdate: ({ serverId: sid, data }) => {
       if (String(sid) !== String(serverId)) return
@@ -917,15 +936,19 @@ const init = async () => {
     },
     onStatus: ({ connected }) => {
       if (connected) {
-        // WS 可用，清除降级轮询
         if (statusTimer) { clearInterval(statusTimer); statusTimer = null }
       } else if (!statusTimer) {
-        // WS 断开，降级启用 60s 轮询直到重连成功
-        statusTimer = setInterval(() => fetchCurrentStatus(), 60000)
+        statusTimer = setInterval(() => fetchCurrentStatus(), TIME.POLL_INTERVAL_MS)
       }
     }
   })
 }
+
+watch([cpuChartRef, ramChartRef, diskChartRef, netChartRef, procChartRef, connChartRef, pingChartRef, loadChartRef], () => {
+  if (!chartsReady.value) {
+    initChartsOnMount()
+  }
+})
 
 onMounted(() => {
   init()
@@ -934,6 +957,6 @@ onMounted(() => {
 onUnmounted(() => {
   if (statusTimer) clearInterval(statusTimer)
   if (liveSocket) liveSocket.close()
-  Object.values(charts).forEach(chart => chart.destroy())
+  safeDestroyCharts()
 })
 </script>

@@ -1,6 +1,6 @@
 # CF-Server-Monitor
 
-**版本：V2.5.1**
+**版本：V2.5.2**
 
 **演示地址**：[https://tz.dashdeep.dpdns.org/](https://tz.dashdeep.dpdns.org/)
 

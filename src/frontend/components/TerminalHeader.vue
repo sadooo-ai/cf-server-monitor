@@ -43,7 +43,7 @@
           >☀</button>
         </div>
       </div>
-      <a href="/admin" class="admin-link-header">⚙ {{ t('admin') }}</a>
+      <a :href="isAdminPage ? '/' : '/admin'" class="admin-link-header">⚙ {{ isAdminPage ? t('dashboard') : t('admin') }}</a>
     </div>
   </div>
 </template>
@@ -51,6 +51,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { t, setLanguage, getLanguage } from '../utils/i18n'
+import { useTheme } from '../composables/useTheme'
 
 defineProps({
   title: {
@@ -59,29 +60,9 @@ defineProps({
   }
 })
 
-const currentTheme = ref('dark')
+const { currentTheme, setTheme } = useTheme()
 const currentLang = ref('en')
-
-const getPreferredTheme = () => {
-  return localStorage.getItem('theme_preference') || 'dark'
-}
-
-const setTheme = (theme) => {
-  localStorage.setItem('theme_preference', theme)
-  currentTheme.value = theme
-  applyTheme(theme)
-}
-
-const applyTheme = (theme) => {
-  if (theme === 'auto') {
-    const hour = new Date().getHours()
-    theme = (hour >= 6 && hour < 18) ? 'light' : 'dark'
-  }
-  document.body.classList.remove('dark', 'light')
-  if (theme !== 'dark') {
-    document.body.classList.add(theme)
-  }
-}
+const isAdminPage = ref(window.location.pathname === '/admin')
 
 const setLang = (lang) => {
   setLanguage(lang)
@@ -93,8 +74,6 @@ const handleLanguageChange = (e) => {
 }
 
 onMounted(() => {
-  currentTheme.value = getPreferredTheme()
-  applyTheme(currentTheme.value)
   currentLang.value = getLanguage()
   window.addEventListener('languageChanged', handleLanguageChange)
 })

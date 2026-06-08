@@ -8,6 +8,7 @@ import { handleServerAPI, handleServersAPI } from './handlers/dashboard.js';
 import { loadSettings, loadSiteSettings } from './utils/settings.js';
 import { checkAuth, simpleAuthResponse } from './middleware/auth.js';
 import { getServerDetail, getMetricsHistoryCache, setMetricsHistoryCache } from './utils/cache.js';
+import { createSuccessResponse, createErrorResponse, createUnauthorizedResponse, createBadRequestResponse } from './utils/errors.js';
 
 // Durable Objects: 实时指标广播
 // 显式 import + extends，确保 wrangler 静态分析器能在入口文件直接识别此 DO 类
@@ -91,7 +92,7 @@ async function verifyTurnstileToken(token, secretKey) {
 }
 
 async function fetchHistoryData(env, request, id, hours, columns, sys = null) {
-  if (!id) return new Response('Missing ID', { status: 400 });
+  if (!id) return createBadRequestResponse('Missing ID');
   
   if (!sys) {
     sys = await loadSettings(env.DB);
@@ -103,7 +104,7 @@ async function fetchHistoryData(env, request, id, hours, columns, sys = null) {
   }
   
   if (hours > 1 && !isLoggedIn) {
-    return new Response(JSON.stringify({ error: 'Unauthorized', code: 401 }), { status: 401, headers: { 'Content-Type': 'application/json' } });
+    return createUnauthorizedResponse();
   }
   
   const server = await getServerDetail(env.DB, id, isLoggedIn);
@@ -113,18 +114,14 @@ async function fetchHistoryData(env, request, id, hours, columns, sys = null) {
   
   const cached = getMetricsHistoryCache(id, clampedHours, columns);
   if (cached && Date.now() - cached.timestamp < 60000) {
-    return new Response(JSON.stringify(cached.data), {
-      headers: { 'Content-Type': 'application/json', 'X-Cache': 'HIT' }
-    });
+    return createSuccessResponse(cached.data, { 'X-Cache': 'HIT' });
   }
   
   const data = await getMetricsHistory(env.DB, id, clampedHours, columns);
   
   setMetricsHistoryCache(id, clampedHours, columns, data);
   
-  return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json', 'X-Cache': 'MISS' }
-  });
+  return createSuccessResponse(data, { 'X-Cache': 'MISS' });
 }
 
 export default {
@@ -136,10 +133,7 @@ export default {
     const path = url.pathname;
 
     if (!env.API_SECRET || env.API_SECRET.length === 0) {
-      return new Response(JSON.stringify({ error: 'API_SECRET is required', code: 400 }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' }
-      });
+      return createBadRequestResponse('API_SECRET is required');
     }
 
     if (env.ASSETS && method === 'GET') {
@@ -188,7 +182,7 @@ export default {
           const isVerified = await verifyTurnstileToken(turnstileToken, turnstileSecretKey);
           
           if (!isVerified) {
-            return new Response(JSON.stringify({ error: 'Turnstile verification failed' }), {
+            return new Response(JSON.stringify({ error: 'Turnstile verification failed', code: 403 }), {
               status: 403,
               headers: { 'Content-Type': 'application/json' }
             });
@@ -217,18 +211,14 @@ export default {
       { method: 'POST', path: '/update', handler: () => handleUpdate(request, env, ctx) },
       { method: 'GET', path: '/__do/health', handler: async () => {
         if (!env.METRICS_BROADCASTER) {
-          return new Response(JSON.stringify({ ok: false, reason: 'DO not bound' }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return createSuccessResponse({ ok: false, reason: 'DO not bound' });
         }
         try {
           const id = env.METRICS_BROADCASTER.idFromName('global');
           const stub = env.METRICS_BROADCASTER.get(id);
           return await stub.fetch('http://internal/health');
         } catch (e) {
-          return new Response(JSON.stringify({ ok: false, reason: e.message }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
+          return createSuccessResponse({ ok: false, reason: e.message });
         }
       }},
       { method: 'GET', path: '/api/config', handler: async () => {
@@ -249,23 +239,11 @@ export default {
           }
         }
         
-        if (cookieAuth) {
-          return new Response(JSON.stringify({
-            turnstile_enabled: true,
-            turnstile_site_key: sys.turnstile_site_key || '',
-            cookie_auth: true
-          }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } else {
-          return new Response(JSON.stringify({
-            turnstile_enabled: turnstileEnabled,
-            turnstile_site_key: sys.turnstile_site_key || '',
-            cookie_auth: false
-          }), {
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
+        return createSuccessResponse({
+          turnstile_enabled: turnstileEnabled,
+          turnstile_site_key: sys.turnstile_site_key || '',
+          cookie_auth: cookieAuth
+        });
       }},
       { method: 'GET', path: '/api/server', handler: async () => {
         await ensureSiteSettings();
@@ -300,9 +278,7 @@ export default {
           return simpleAuthResponse();
         }
         const result = await cleanupOldData(env.DB);
-        return new Response(JSON.stringify(result), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return createSuccessResponse(result);
       }},
       { method: 'GET', path: '/updateDatabase', handler: async () => {
         await ensureSiteSettings();
@@ -310,9 +286,7 @@ export default {
           return simpleAuthResponse();
         }
         const result = await updateDatabase(env.DB);
-        return new Response(JSON.stringify(result), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return createSuccessResponse(result);
       }},
       { method: 'GET', path: '/rebuild', handler: async () => {
         await ensureSiteSettings();
@@ -320,9 +294,7 @@ export default {
           return simpleAuthResponse();
         }
         const result = await rebuildDatabase(env.DB);
-        return new Response(JSON.stringify(result), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+        return createSuccessResponse(result);
       }}
     ];
 

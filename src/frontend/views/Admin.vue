@@ -40,7 +40,6 @@
           </div>
           <div class="header-actions">
             <button @click="refreshStats" class="btn">↻ {{ trans.refresh }}</button>
-            <a href="/" class="btn">🏠 {{ trans.dashboard }}</a>
             <button @click="logout" class="btn btn-red">🚪 {{ trans.logout }}</button>
           </div>
         </div>
@@ -494,6 +493,7 @@
           <div class="form-group">
             <label class="form-label">{{ trans.reportInterval }}</label>
             <select v-model="reportInterval" class="form-select">
+              <option :value="30">30</option>
               <option :value="60">60</option>
               <option :value="120">120</option>
               <option :value="180">180</option>
