@@ -42,7 +42,7 @@ export async function handleServersAPI(request, env, sys) {
   const now = Date.now();
   let globalOnline = 0;
   let globalSpeedIn = 0, globalSpeedOut = 0, globalNetTx = 0, globalNetRx = 0;
-  const countryStats = {};
+  const regionStats = {};
   
   for (const server of results) {
     const latestMetrics = latestMetricsMap.get(server.id);
@@ -63,9 +63,9 @@ export async function handleServersAPI(request, env, sys) {
     globalNetRx += parseFloat(server.net_rx || 0);
     globalNetTx += parseFloat(server.net_tx || 0);
     
-    let cCode = (server.country || '').toUpperCase();
+    let cCode = (server.region || '').toUpperCase();
     if (cCode !== '') {
-      countryStats[cCode] = (countryStats[cCode] || 0) + 1;
+      regionStats[cCode] = (regionStats[cCode] || 0) + 1;
     }
   }
   
@@ -82,7 +82,7 @@ export async function handleServersAPI(request, env, sys) {
       globalNetTx,
       globalNetRx
     },
-    countryStats,
+    regionStats,
     sysConfig: {
       show_price: sys.show_price === 'true',
       show_expire: sys.show_expire === 'true',

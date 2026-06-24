@@ -35,7 +35,7 @@
           @click="setFilter(code)"
         >
           <span v-if="code === 'unknown'" class="filter-tag-icon">🏳️</span>
-          <img v-else-if="code !== 'all'" :src="'https://flagcdn.com/16x12/' + getFlagCountryCode(code) + '.png'" :alt="code">
+          <img v-else-if="code !== 'all'" :src="'https://flagcdn.com/16x12/' + getFlagRegionCode(code) + '.png'" :alt="code">
           {{ code === 'all' ? '[' + trans.all + ']' : code === 'unknown' ? 'UNKNOWN' : code.toUpperCase() }} {{ count }}
         </span>
       </div>
@@ -120,18 +120,18 @@
               :key="server.id"
               @click="goToServer(server.id)"
               class="table-cursor-pointer"
-              :data-country="(server.country || 'xx').toLowerCase()"
+              :data-region="(server.region || 'xx').toLowerCase()"
             >
               <td class="table-center-cell">
                 <div class="status-indicator table-status-indicator-inline" :style="{ background: getStatusColor(server) }"></div>
               </td>
               <td><b>{{ server.name }}</b></td>
               <td>
-                <span v-if="server.country && server.country !== 'xx'">
-                  <img :src="'https://flagcdn.com/24x18/' + getFlagCountryCode(server.country) + '.png'" :alt="server.country" class="flag-img">
+                <span v-if="server.region && server.region !== 'xx'">
+                  <img :src="'https://flagcdn.com/24x18/' + getFlagRegionCode(server.region) + '.png'" :alt="server.region" class="flag-img">
                 </span>
                 <span v-else>🏳️</span>
-                {{ (server.country || 'XX').toUpperCase() }}
+                {{ (server.region || 'XX').toUpperCase() }}
               </td>
               <td><span class="os-label">{{ server.os || 'N/A' }} / {{ server.arch || 'N/A' }} </span></td>
               <td>
@@ -191,7 +191,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import TerminalHeader from '../components/TerminalHeader.vue'
 import ServerCard from '../components/ServerCard.vue'
 import Footer from '../components/Footer.vue'
-import { fetchServers, formatBytes, createLiveSocket, getFlagCountryCode } from '../utils/api.js'
+import { fetchServers, formatBytes, createLiveSocket, getFlagRegionCode } from '../utils/api.js'
 import { t, currentLang } from '../utils/i18n.js'
 import { translations } from '../utils/i18n.js'
 import { TIME } from '../utils/constants'
@@ -206,7 +206,7 @@ const sysConfig = ref({
   show_tf: true,
   site_title: 'Server Monitor'
 })
-const countryStats = ref({})
+const regionStats = ref({})
 const currentView = ref('card')
 const currentFilter = ref('all')
 const mapInitialized = ref(false)
@@ -218,10 +218,10 @@ const trans = computed(() => translations[currentLang.value] || translations.en)
 
 const filterOptions = computed(() => {
   const normalizedStats = {}
-  for (const code in countryStats.value) {
+  for (const code in regionStats.value) {
     const lower = code.toLowerCase()
     if (lower === 'xx') continue
-    normalizedStats[lower] = countryStats.value[code]
+    normalizedStats[lower] = regionStats.value[code]
   }
   const opts = { all: stats.value.total, ...normalizedStats }
   if (unknownStats.value > 0) opts.unknown = unknownStats.value
@@ -230,8 +230,8 @@ const filterOptions = computed(() => {
 
 const filteredServers = computed(() => {
   if (currentFilter.value === 'all') return servers.value
-  if (currentFilter.value === 'unknown') return servers.value.filter(s => !s.country)
-  return servers.value.filter(s => (s.country || 'xx').toLowerCase() === currentFilter.value)
+  if (currentFilter.value === 'unknown') return servers.value.filter(s => !s.region)
+  return servers.value.filter(s => (s.region || 'xx').toLowerCase() === currentFilter.value)
 })
 
 const groupedServers = computed(() => {
@@ -338,7 +338,7 @@ const recomputeStats = () => {
   const now = Date.now()
   let online = 0
   let speedIn = 0, speedOut = 0, netRx = 0, netTx = 0
-  const countryCounts = {}
+  const regionCounts = {}
   let unknownCount = 0
   for (const s of list) {
     const ts = new Date(s.last_updated || 0).getTime()
@@ -350,9 +350,9 @@ const recomputeStats = () => {
     }
     netRx += parseFloat(s.net_rx) || 0
     netTx += parseFloat(s.net_tx) || 0
-    if (s.country) {
-      const key = String(s.country).toUpperCase()
-      countryCounts[key] = (countryCounts[key] || 0) + 1
+    if (s.region) {
+      const key = String(s.region).toUpperCase()
+      regionCounts[key] = (regionCounts[key] || 0) + 1
     } else {
       unknownCount++
     }
@@ -366,7 +366,7 @@ const recomputeStats = () => {
     globalSpeedIn: speedIn,
     globalSpeedOut: speedOut
   }
-  countryStats.value = countryCounts
+  regionStats.value = regionCounts
   unknownStats.value = unknownCount
 }
 
@@ -389,18 +389,18 @@ const refreshData = async () => {
     servers.value = nextList
 
     if (data.stats) stats.value = data.stats
-    if (data.countryStats) {
+    if (data.regionStats) {
       const cleaned = {}
-      for (const code in data.countryStats) {
+      for (const code in data.regionStats) {
         if (code.toLowerCase() === 'xx') continue
-        cleaned[code] = data.countryStats[code]
+        cleaned[code] = data.regionStats[code]
       }
-      countryStats.value = cleaned
+      regionStats.value = cleaned
     }
     // 始终基于当前服务器列表计算未知国家数量（与 recomputeStats 保持一致）
     let unknownCount = 0
     for (const s of servers.value) {
-      if (!s.country) unknownCount++
+      if (!s.region) unknownCount++
     }
     unknownStats.value = unknownCount
 
@@ -497,7 +497,7 @@ const createMap = () => {
     .catch(e => console.error('[ERROR] Map load failed', e))
 }
 
-const countryCoords = {
+const regionCoords = {
   'US': [37.09, -95.71], 'CN': [35.86, 104.19], 'JP': [36.20, 138.25], 'HK': [22.31, 114.16],
   'SG': [1.35, 103.81], 'KR': [35.90, 127.76], 'DE': [51.16, 10.45], 'GB': [55.37, -3.43],
   'NL': [52.13, 5.29], 'FR': [46.22, 2.21], 'CA': [56.13, -106.34], 'AU': [-25.27, 133.77],
@@ -526,7 +526,7 @@ const getThemeColors = () => {
 const drawMarkers = () => {
   if (!window.myMap || !window.worldGeoJson) return
 
-  const newDataStr = JSON.stringify(countryStats.value)
+  const newDataStr = JSON.stringify(regionStats.value)
   if (currentMapDataStr === newDataStr) return
   currentMapDataStr = newDataStr
 
@@ -536,7 +536,7 @@ const drawMarkers = () => {
 
   const colors = getThemeColors()
   const activeIso2 = {}
-  for (const code in countryStats.value) {
+  for (const code in regionStats.value) {
     const upperCode = code.toUpperCase()
     activeIso2[upperCode] = true
     if (upperCode === 'HK' || upperCode === 'TW' || upperCode === 'MO') {
@@ -557,15 +557,15 @@ const drawMarkers = () => {
     }
   }).addTo(window.myMap)
 
-  for (const [code, count] of Object.entries(countryStats.value)) {
+  for (const [code, count] of Object.entries(regionStats.value)) {
     const upperCode = code.toUpperCase()
-    if (countryCoords[upperCode]) {
+    if (regionCoords[upperCode]) {
       const icon = window.L.divIcon({
         className: 'custom-map-marker',
         html: `<div style="background:${colors.accentGreen}; color:${colors.colorBlack}; border-radius:50%; width:22px; height:22px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:bold; border:2px solid ${colors.bgPrimary}; box-shadow:0 0 10px ${colors.accentGreen}80; font-family:JetBrains Mono,monospace;">${count}</div>`,
         iconSize: [22,22]
       })
-      window.L.marker(countryCoords[upperCode], {icon: icon}).addTo(markersLayer)
+      window.L.marker(regionCoords[upperCode], {icon: icon}).addTo(markersLayer)
     }
   }
 }

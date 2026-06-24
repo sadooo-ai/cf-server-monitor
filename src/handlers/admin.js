@@ -241,7 +241,7 @@ export async function handleAdminAPI(request, env, sys) {
         }
         
         item.is_online = isOnline;
-        if (!item.country) item.country = server.country || '';
+        if (!item.region) item.region = server.region || '';
 
         if (isOnline) {
           stats.online++;

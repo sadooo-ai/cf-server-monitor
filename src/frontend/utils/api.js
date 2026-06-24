@@ -95,8 +95,8 @@ export const createLiveSocket = (subscribe, handlers = {}) => {
   }
 }
 
-export const getFlagCountryCode = (country) => {
-  const code = (country || '').toUpperCase()
+export const getFlagRegionCode = (region) => {
+  const code = (region || '').toUpperCase()
   if (code === 'TW' || code === 'HK' || code === 'MO') return 'cn'
   return code.toLowerCase()
 }

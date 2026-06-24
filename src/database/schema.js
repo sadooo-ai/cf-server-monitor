@@ -75,7 +75,7 @@ export async function initDatabase(db) {
         gpu_info TEXT DEFAULT '',
         arch TEXT DEFAULT '',
         os TEXT DEFAULT '',
-        country TEXT DEFAULT '',
+        region TEXT DEFAULT '',
         ip_v4 TEXT DEFAULT '0',
         ip_v6 TEXT DEFAULT '0',
         boot_time TEXT DEFAULT '',
@@ -319,7 +319,7 @@ export async function monthlyCleanup(db) {
   }
 }
 
-export async function saveMetricsHistory(db, serverId, metrics, countryCode = '') {
+export async function saveMetricsHistory(db, serverId, metrics, regionCode = '') {
   try {
     const now = Date.now();
     
@@ -345,7 +345,7 @@ export async function saveMetricsHistory(db, serverId, metrics, countryCode = ''
         loss_ct, loss_cu, loss_cm, loss_bd,
         ram_total, ram_used, swap_total, swap_used,
         disk_total, disk_used,
-        cpu_cores, cpu_info, gpu, gpu_info, arch, os, country, ip_v4, ip_v6, boot_time,
+        cpu_cores, cpu_info, gpu, gpu_info, arch, os, region, ip_v4, ip_v6, boot_time,
         net_rx_monthly, net_tx_monthly
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
@@ -392,7 +392,7 @@ export async function saveMetricsHistory(db, serverId, metrics, countryCode = ''
       metrics.gpu_info || '',
       metrics.arch || '',
       metrics.os || '',
-      countryCode,
+      regionCode,
       metrics.ip_v4 || '0',
       metrics.ip_v6 || '0',
       metrics.boot_time || '',

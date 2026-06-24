@@ -34,7 +34,7 @@ export function mergeMetricsIntoServer(server, metrics) {
   server.gpu_info = metrics.gpu_info || '';
   server.arch = metrics.arch || '';
   server.os = metrics.os || '';
-  server.country = metrics.country || '';
+  server.region = metrics.region || '';
   server.ip_v4 = metrics.ip_v4 || '0';
   server.ip_v6 = metrics.ip_v6 || '0';
   server.boot_time = metrics.boot_time || '';

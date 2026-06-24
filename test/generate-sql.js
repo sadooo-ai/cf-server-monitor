@@ -63,7 +63,6 @@ function generateMetrics(baseTimestamp, serverIdx, hourOffset) {
     gpu_info: serverIdx === 0 ? 'NVIDIA Tesla T4' : 'AMD Radeon Pro V620',
     arch: 'x86_64',
     os: serverIdx === 0 ? 'Ubuntu 22.04 LTS' : 'Debian 12',
-    country: serverIdx === 0 ? 'US' : 'JP',
     boot_time: (Date.now() - (serverIdx === 0 ? 86400000 * 600 : 86400000 * 15)).toString()
   };
 }
@@ -204,7 +203,7 @@ INSERT INTO metrics_history (
   loss_ct, loss_cu, loss_cm, loss_bd,
   ram_total, ram_used, swap_total, swap_used,
   disk_total, disk_used,
-  cpu_cores, cpu_info, gpu, gpu_info, arch, os, country,
+  cpu_cores, cpu_info, gpu, gpu_info, arch, os,
   ip_v4, ip_v6, boot_time,
   net_rx_monthly, net_tx_monthly
 ) VALUES (
@@ -241,7 +240,6 @@ INSERT INTO metrics_history (
   '${metrics.gpu_info}',
   '${metrics.arch}',
   '${metrics.os}',
-  '${metrics.country}',
   '${metrics.ip_v4}',
   '${metrics.ip_v6}',
   '${metrics.boot_time}',

@@ -1,10 +1,10 @@
 <template>
-  <a :href="'/server/' + server.id" class="server-card" :data-country="countryCode">
+  <a :href="'/server/' + server.id" class="server-card" :data-region="regionCode">
     <div class="server-card-header">
       <div class="server-identity">
         <div class="status-indicator" :style="{ background: statusColor, boxShadow: '0 0 8px ' + statusColor }"></div>
-        <span v-if="countryCode !== 'xx'">
-          <img :src="'https://flagcdn.com/24x18/' + countryCode + '.png'" :alt="countryCode" style="vertical-align: middle; margin-right: 5px; border-radius: 2px; filter: brightness(0.9);">
+        <span v-if="regionCode !== 'xx'">
+          <img :src="'https://flagcdn.com/24x18/' + regionCode + '.png'" :alt="regionCode" style="vertical-align: middle; margin-right: 5px; border-radius: 2px; filter: brightness(0.9);">
         </span>
         <span v-else>🏳️</span>
         <span class="server-name">{{ server.name }}</span>
@@ -86,7 +86,7 @@
 
 <script setup>
 import { computed } from 'vue'
-import { formatBytes, getFlagCountryCode } from '../utils/api'
+import { formatBytes, getFlagRegionCode } from '../utils/api'
 import { t, currentLang } from '../utils/i18n'
 import { translations } from '../utils/i18n'
 import { TIME, PING } from '../utils/constants'
@@ -111,7 +111,7 @@ const trans = computed(() => translations[currentLang.value] || translations.en)
 
 const now = Date.now()
 
-const countryCode = computed(() => getFlagCountryCode(props.server.country))
+const regionCode = computed(() => getFlagRegionCode(props.server.region))
 
 const isOnline = computed(() => {
   const lastUpdated = new Date(props.server.last_updated).getTime()

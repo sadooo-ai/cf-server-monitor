@@ -9,7 +9,7 @@ function buildPayloadForBroadcast(id, metrics, extra = {}) {
   const payload = {};
   mergeMetricsIntoServer(payload, metrics);
   payload.id = id;
-  payload.country = metrics.country || extra.country || '';
+  payload.region = extra.region || '';
   payload.last_updated = metrics.timestamp || Date.now();
   payload.timestamp = payload.last_updated;
   return payload;
@@ -44,8 +44,7 @@ export async function handleUpdate(request, env, ctx) {
       return createUnauthorizedResponse('Invalid secret');
     }
 
-    let countryCode = request.cf?.country || request.headers?.get('cf-ipcountry') || '';
-    const upperCode = countryCode.toUpperCase();
+    let regionCode = request.cf?.country || request.headers?.get('cf-ipcountry') || '';
 
     const serverExists = await checkServerExists(env.DB, id);
 
@@ -53,9 +52,9 @@ export async function handleUpdate(request, env, ctx) {
       return createNotFoundResponse('Server not found');
     }
 
-    await saveMetricsHistory(env.DB, id, metrics, countryCode);
+    await saveMetricsHistory(env.DB, id, metrics, regionCode);
 
-    const payload = buildPayloadForBroadcast(id, metrics || {}, { country: countryCode });
+    const payload = buildPayloadForBroadcast(id, metrics || {}, { region: regionCode });
     ctx.waitUntil(broadcastToDO(env, id, payload));
 
     return new Response('OK', { status: 200 });

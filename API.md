@@ -311,7 +311,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 
 1. 插入一行到 `metrics_history`。
 2. 触发 Durable Object `MetricsBroadcaster` 内部广播，WebSocket 订阅者将立即收到 `{type:"update", serverId, ts, data}` 消息。
-3. 写入 `request.cf.country`（或 `cf-ipcountry` Header）作为该条记录的 `country` 字段（统一转大写）。
+3. 写入 `request.cf.country`（或 `cf-ipcountry` Header）作为该条记录的 `region` 字段（统一转大写）。
 
 ***
 
@@ -378,7 +378,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
     "globalNetTx": 1234567890,
     "globalNetRx": 9876543210
   },
-  "countryStats": { "US": 3, "JP": 2, "CN": 5 },
+  "regionStats": { "US": 3, "JP": 2, "CN": 5 },
   "sysConfig": {
     "show_price": true,
     "show_expire": true,
@@ -393,7 +393,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
 | -------------- | --------------------------------------------------------------------- |
 | `servers`      | 已合并最新指标的服务器列表（按 `sort_order ASC`），未登录用户**自动过滤** **`is_hidden = '1'`** |
 | `stats`        | 聚合统计：在线阈值 300 秒（5 分钟无上报视为离线）                                          |
-| `countryStats` | 按 ISO 国家码（大写）统计的服务器数                                                  |
+| `regionStats` | 按 ISO 区域码（大写）统计的服务器数                                                  |
 | `sysConfig`    | 当前站点开关，前端据此显示对应 UI                                                    |
 
 ***
@@ -458,7 +458,7 @@ CORS_ALLOWED_ORIGINS=https://status.example.com,https://admin.example.com
   "gpu_info": "NVIDIA GeForce RTX 3060",
   "arch": "x86_64",
   "os": "Ubuntu 22.04",
-  "country": "HK",
+  "region": "HK",
   "ip_v4": "1",
   "ip_v6": "1",
   "boot_time": "1700000000000",
@@ -1082,7 +1082,7 @@ Header：`X-Turnstile-Token: <token>`（当 `site_options.turnstile_enabled === 
 | `gpu_info`                                    | string             | GPU 型号                    |
 | `arch`                                        | string             | 架构                        |
 | `os`                                          | string             | OS 名称                     |
-| `country`                                     | string             | ISO 国家码（大写）               |
+| `region`                                      | string             | 区域代码（大写，兼容 ISO 国家码）         |
 | `ip_v4`                                       | string `"0"`/`"1"` | IPv4 可达性                  |
 | `ip_v6`                                       | string `"0"`/`"1"` | IPv6 可达性                  |
 | `boot_time`                                   | string             | 启动时间（毫秒）                  |
